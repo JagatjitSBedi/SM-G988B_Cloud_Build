@@ -1,0 +1,16 @@
+name: Build Kernel
+on: [push]
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Build Kernel
+        run: |
+          echo '##[group] Setting up environment'
+          make exynos9830-z3sxxx_defconfig
+          echo '##[group] Compiling kernel'
+          make -j$(nproc)
+          echo '##[group] Creating zip file'
+          zip kernel.zip arch/arm64/boot/Image.gz-dtb
