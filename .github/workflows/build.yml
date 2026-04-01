@@ -1,0 +1,58 @@
+name: Build Exynos 990 Kernel for SM-G988B
+on: [push, workflow_dispatch]
+jobs:
+  build:
+    name: Build Kernel
+    runs-on: ubuntu-latest
+    env:
+      ARCH: arm64
+      SUBARCH: arm64
+      KBUILD_BUILD_USER: "GitHubActions"
+      KBUILD_BUILD_HOST: "GitHub"
+      CLANG_TRIPLE: aarch64-linux-gnu-
+      CROSS_COMPILE: aarch64-linux-gnu-
+      CROSS_COMPILE_ARM32: arm-linux-gnueabi-
+      LLVM_IAS: 1
+    steps:
+      - name: Checkout Kernel Source
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Install Build Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential git bc bison flex libssl-dev cpio libncurses5-dev zip
+
+      - name: Download Clang Toolchain
+        run: git clone --depth=1 https://github.com/kdrag0n/proton-clang.git clang-toolchain
+
+      - name: Set Build Environment
+        run: echo "PATH=$(pwd)/clang-toolchain/bin:$PATH" >> $GITHUB_ENV
+
+      - name: Configure Kernel
+        run: make exynos990_defconfig O=out
+
+      - name: Compile Kernel
+        run: make -j$(nproc --all) O=out CC=clang
+
+      - name: Package Kernel Artifacts
+        run: |
+          if [ -f out/arch/arm64/boot/Image ]; then
+            cp out/arch/arm64/boot/Image ./Image
+            if [ -f out/arch/arm64/boot/dtbo.img ]; then
+              cp out/arch/arm64/boot/dtbo.img ./dtbo.img
+              zip -r9 kernel-SM-G988B.zip Image dtbo.img
+            else
+              zip -r9 kernel-SM-G988B.zip Image
+            fi
+          else
+            echo "Kernel Image not found!"
+            exit 1
+          fi
+
+      - name: Upload Kernel Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-SM-G988B
+          path: kernel-SM-G988B.zip
